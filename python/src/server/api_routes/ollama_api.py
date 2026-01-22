@@ -728,15 +728,17 @@ def _determine_model_type(model) -> str:
         'orca', 'vicuna', 'wizardlm', 'solar', 'mixtral', 'chatglm', 'baichuan'
     ]
 
-    # First check if it's a known chat model (these take priority even if they have embedding capabilities)
-    for pattern in chat_patterns:
-        if pattern in model_name:
-            return 'chat'
-
-    # Then check for dedicated embedding models
+    # IMPORTANT: Check for embedding models FIRST before chat models
+    # This prevents specialized embedding variants (e.g., qwen3-embedding) from being
+    # incorrectly classified as chat models due to their base model family name
     for pattern in embedding_patterns:
         if pattern in model_name:
             return 'embedding'
+
+    # Then check for chat/LLM models
+    for pattern in chat_patterns:
+        if pattern in model_name:
+            return 'chat'
 
     # Check for multimodal capabilities
     if any(keyword in model_name for keyword in ['vision', 'multimodal', 'llava']):
