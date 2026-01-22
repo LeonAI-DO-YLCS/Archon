@@ -1,4 +1,4 @@
-# Simple Vite dev server setup
+# Vite dev server with proper volume handling
 FROM node:18-alpine
 
 WORKDIR /app
@@ -21,5 +21,6 @@ COPY . .
 # Expose the port configured in package.json (3737)
 EXPOSE 3737
 
-# Start Vite dev server (already configured with --port 3737 --host in package.json)
-CMD ["npm", "run", "dev"]
+# Use a startup script to ensure node_modules is available
+# This handles the case where source volume mounts might hide node_modules
+CMD ["sh", "-c", "if [ ! -d node_modules ]; then npm ci; fi && npm run dev"]
