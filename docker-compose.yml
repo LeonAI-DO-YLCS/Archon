@@ -235,10 +235,17 @@ services:
       archon-server:
         condition: service_healthy
 
-  # Ollama Service for Local LLM Inference
+  # Ollama Service for Local LLM Inference (GPU-Accelerated)
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     ports:
       - "11434:11434"
     volumes:
@@ -247,6 +254,8 @@ services:
       - app-network
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "ollama", "list"]
