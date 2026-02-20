@@ -29,8 +29,8 @@ const ideConfigurations: Record<
       JSON.stringify(
         {
           name: "archon",
-          transport: "http",
-          url: `http://${config.host}:${config.port}/mcp`,
+          command: "npx",
+          args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
         },
         null,
         2,
@@ -49,7 +49,8 @@ const ideConfigurations: Record<
         {
           mcpServers: {
             archon: {
-              httpUrl: `http://${config.host}:${config.port}/mcp`,
+              command: "npx",
+              args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
             },
           },
         },
@@ -60,38 +61,20 @@ const ideConfigurations: Record<
   codex: {
     title: "Codex Configuration",
     steps: [
-      "Step 1: Install mcp-remote globally: npm install -g mcp-remote",
-      "Step 2: Add configuration to ~/.codex/config.toml",
-      "Step 3: Find your exact mcp-remote path by running: npm root -g",
-      "Step 4: Replace the path in the configuration with your actual path + /mcp-remote/dist/proxy.js",
+      "Step 1: Locate or create your ~/.codex/config.toml file",
+      "Step 2: Add the configuration shown below to the file",
+      "Step 3: Restart Codex for changes to take effect",
     ],
     configGenerator: (config) => {
-      const isWindows = navigator.platform.toLowerCase().includes("win");
-
-      if (isWindows) {
-        return `[mcp_servers.archon]
-command = 'node'
+      return `[mcp_servers.archon]
+command = 'npx'
 args = [
-    'C:/Users/YOUR_USERNAME/AppData/Roaming/npm/node_modules/mcp-remote/dist/proxy.js',
-    'http://${config.host}:${config.port}/mcp'
-]
-env = {
-    APPDATA = 'C:\\Users\\YOUR_USERNAME\\AppData\\Roaming',
-    LOCALAPPDATA = 'C:\\Users\\YOUR_USERNAME\\AppData\\Local',
-    SystemRoot = 'C:\\WINDOWS',
-    COMSPEC = 'C:\\WINDOWS\\system32\\cmd.exe'
-}`;
-      } else {
-        return `[mcp_servers.archon]
-command = 'node'
-args = [
-    '/usr/local/lib/node_modules/mcp-remote/dist/proxy.js',
-    'http://${config.host}:${config.port}/mcp'
-]
-env = { }`;
-      }
+    '-y',
+    'mcp-remote',
+    'http://${config.host}:${config.port}/mcp',
+    '--allow-http'
+]`;
     },
-    platformSpecific: true,
   },
   cursor: {
     title: "Cursor Configuration",
@@ -106,7 +89,8 @@ env = { }`;
         {
           mcpServers: {
             archon: {
-              url: `http://${config.host}:${config.port}/mcp`,
+              command: "npx",
+              args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
             },
           },
         },
@@ -128,7 +112,8 @@ env = { }`;
         {
           mcpServers: {
             archon: {
-              serverUrl: `http://${config.host}:${config.port}/mcp`,
+              command: "npx",
+              args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
             },
           },
         },
@@ -151,7 +136,7 @@ env = { }`;
           mcpServers: {
             archon: {
               command: "npx",
-              args: ["mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
+              args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
             },
           },
         },
@@ -173,7 +158,7 @@ env = { }`;
           mcpServers: {
             archon: {
               command: "npx",
-              args: ["mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
+              args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
             },
           },
         },
@@ -215,10 +200,11 @@ export const McpConfigSection: React.FC<McpConfigSectionProps> = ({ config, stat
   };
 
   const handleCursorOneClick = () => {
-    const httpConfig = {
-      url: `http://${config.host}:${config.port}/mcp`,
+    const stdioConfig = {
+      command: "npx",
+      args: ["-y", "mcp-remote", `http://${config.host}:${config.port}/mcp`, "--allow-http"],
     };
-    const configString = JSON.stringify(httpConfig);
+    const configString = JSON.stringify(stdioConfig);
     const base64Config = btoa(configString);
     const deeplink = `cursor://anysphere.cursor-deeplink/mcp/install?name=archon&config=${base64Config}`;
     window.location.href = deeplink;
@@ -226,7 +212,7 @@ export const McpConfigSection: React.FC<McpConfigSectionProps> = ({ config, stat
   };
 
   const handleClaudeCodeCommand = async () => {
-    const command = `claude mcp add --transport http archon http://${config.host}:${config.port}/mcp`;
+    const command = `claude mcp add --transport stdio archon npx -- -y mcp-remote http://${config.host}:${config.port}/mcp --allow-http`;
     const result = await copyToClipboard(command);
 
     if (result.success) {
@@ -309,7 +295,7 @@ export const McpConfigSection: React.FC<McpConfigSectionProps> = ({ config, stat
               )}
             >
               <code className="text-sm font-mono text-cyan-600 dark:text-cyan-400">
-                claude mcp add --transport http archon http://{config.host}:{config.port}/mcp
+                claude mcp add archon -- npx -y mcp-remote http://{config.host}:{config.port}/mcp --allow-http
               </code>
               <Button variant="outline" size="sm" onClick={handleClaudeCodeCommand}>
                 <Copy className="w-3 h-3 mr-1" />
@@ -320,7 +306,7 @@ export const McpConfigSection: React.FC<McpConfigSectionProps> = ({ config, stat
 
           {/* Platform-specific note for Codex */}
           {selectedIDE === "codex" && (
-            <div className={cn("p-3 rounded-lg", glassmorphism.background.yellow, glassmorphism.border.yellow)}>
+            <div className={cn("p-3 rounded-lg", glassmorphism.background.subtle, glassmorphism.border.default)}>
               <p className="text-sm text-yellow-700 dark:text-yellow-300">
                 <span className="font-semibold">Platform Note:</span> The configuration below shows{" "}
                 {navigator.platform.toLowerCase().includes("win") ? "Windows" : "Linux/macOS"} format. Adjust paths
