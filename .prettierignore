@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Session/workspace data
+sessions/
+api_sessions/
+workspace/
+
+# Lock files (auto-generated)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+
+# Agent commands and documentation (user-managed)
+.agents/
+.claude/
+.archon/
+
+# Website (Astro/Starlight - uses own formatting)
+packages/docs-web/
+
+# GitHub templates (don't auto-format)
+.github/
+
+# Project documentation (don't auto-format)
+docs/
+AGENTS.md
+CLAUDE.md
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+*.yml
+*.yaml
+check-env.js
+
+# Archived legacy code and migration artifacts
+.archive/
+
+# Speckit configuration and templates
+.specify/
+
+# Planning documents
+PRPs/
+
+# Feature specifications (don't auto-format markdown)
+specs/

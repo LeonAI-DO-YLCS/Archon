@@ -1,0 +1,260 @@
+import { memo, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { ArrowDown, Sparkles, ArrowRight, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MessageBubble } from './MessageBubble';
+import { ToolCallCard } from './ToolCallCard';
+import { ErrorCard } from './ErrorCard';
+import { WorkflowProgressCard } from './WorkflowProgressCard';
+import { useAutoScroll } from '@/hooks/useAutoScroll';
+import type { ChatMessage } from '@/lib/types';
+
+// Hoisted to module scope to prevent new references on every render
+const WORKFLOW_RESULT_MARKDOWN_COMPONENTS = {
+  a: ({ children, ...props }: React.ComponentPropsWithoutRef<'a'>): React.ReactElement => (
+    <a
+      className="text-primary underline decoration-primary/40 hover:decoration-primary"
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+};
+
+function WorkflowResultCard({
+  workflowName,
+  runId,
+  content,
+}: {
+  workflowName: string;
+  runId: string;
+  content: string;
+}): React.ReactElement {
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
+
+  const lines = content.split('\n');
+  const isTruncatable = content.length > 500 || lines.length > 8;
+  const previewText = lines.slice(0, 8).join('\n').slice(0, 500);
+  const preview = isTruncatable
+    ? previewText + (previewText.length < content.length ? '...' : '')
+    : content;
+
+  const displayContent = expanded || !isTruncatable ? content : preview;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface overflow-hidden max-w-3xl">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-elevated">
+        <span className="text-success text-xs shrink-0">&#x2713;</span>
+        <span className="text-xs font-medium text-text-primary truncate flex-1">
+          Workflow complete: {workflowName}
+        </span>
+        <button
+          onClick={(): void => {
+            navigate(`/workflows/runs/${runId}`);
+          }}
+          className="text-[10px] text-primary hover:text-accent-bright transition-colors shrink-0"
+        >
+          View full logs &rarr;
+        </button>
+      </div>
+      <div className="px-3 py-2">
+        <div className="chat-markdown text-xs text-text-secondary">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={WORKFLOW_RESULT_MARKDOWN_COMPONENTS}
+          >
+            {displayContent}
+          </ReactMarkdown>
+        </div>
+        {isTruncatable && (
+          <button
+            onClick={(): void => {
+              setExpanded(!expanded);
+            }}
+            className="mt-1 text-[10px] text-primary hover:text-accent-bright transition-colors"
+          >
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface MessageListProps {
+  messages: ChatMessage[];
+  isStreaming: boolean;
+  /** When this value changes, force-scroll to bottom regardless of user scroll position. */
+  scrollTrigger?: number;
+  /** Scroll to the first message at or after this timestamp. */
+  scrollToTimestamp?: number | null;
+  /** Increment to re-trigger scroll even if scrollToTimestamp didn't change (e.g. clicking same node). */
+  scrollToTrigger?: number;
+  /** When true, show welcoming empty state instead of generic placeholder. */
+  isNewChat?: boolean;
+  /** Project name to display as context in the welcoming view. */
+  projectName?: string;
+  /** Called when user clicks a quick action: receives a message string to send or 'focus'. */
+  onQuickAction?: (action: string) => void;
+}
+
+function MessageListRaw({
+  messages,
+  isStreaming,
+  scrollTrigger,
+  scrollToTimestamp,
+  scrollToTrigger,
+  isNewChat,
+  projectName,
+  onQuickAction,
+}: MessageListProps): React.ReactElement {
+  const navigate = useNavigate();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { isAtBottom, scrollToBottom } = useAutoScroll(
+    containerRef,
+    [messages, isStreaming],
+    scrollTrigger
+  );
+
+  // Scroll to a specific message by timestamp (e.g., when user clicks a DAG node).
+  // Only fires on user-initiated clicks (scrollToTrigger > 0), not on mount/auto-select.
+  useEffect(() => {
+    if (scrollToTimestamp == null || !scrollToTrigger || !containerRef.current) return;
+    const raf = requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      const elements = containerRef.current.querySelectorAll<HTMLElement>('[data-timestamp]');
+      let target: HTMLElement | null = null;
+      for (const el of elements) {
+        const ts = Number(el.getAttribute('data-timestamp'));
+        if (ts >= scrollToTimestamp) {
+          target = el;
+          break;
+        }
+      }
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return (): void => {
+      cancelAnimationFrame(raf);
+    };
+  }, [scrollToTimestamp, scrollToTrigger]);
+
+  if (messages.length === 0) {
+    if (isNewChat) {
+      return (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-4 max-w-sm w-full px-4">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Sparkles className="h-8 w-8 text-primary" />
+              <h2 className="text-base font-semibold text-text-primary">
+                What would you like to do?
+              </h2>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(): void => {
+                  navigate('/workflows');
+                }}
+                className="flex items-center gap-1.5"
+              >
+                Run a workflow
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={(): void => onQuickAction?.('focus')}>
+                Ask a question
+              </Button>
+              <Button variant="outline" size="sm" onClick={(): void => onQuickAction?.('/status')}>
+                /status
+              </Button>
+            </div>
+            {projectName && (
+              <p className="text-xs text-text-tertiary text-center">Project: {projectName}</p>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-text-tertiary">
+          <MessageSquare className="h-10 w-10" />
+          <p className="text-sm">Send a message to start chatting</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex-1 overflow-hidden">
+      <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
+        <div className="mx-auto flex max-w-3xl flex-col gap-3 pb-6">
+          {messages.map(msg =>
+            msg.role === 'system' ? (
+              <div
+                key={msg.id}
+                data-timestamp={String(msg.timestamp)}
+                className="flex items-center justify-center gap-2 py-1 text-xs text-muted-foreground"
+              >
+                <span className="h-px flex-1 bg-border" />
+                <span>{msg.content}</span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            ) : (
+              <div
+                key={msg.id}
+                data-timestamp={String(msg.timestamp)}
+                className="flex flex-col gap-1.5"
+              >
+                {msg.workflowResult ? (
+                  <WorkflowResultCard
+                    workflowName={msg.workflowResult.workflowName}
+                    runId={msg.workflowResult.runId}
+                    content={msg.content}
+                  />
+                ) : (
+                  <>
+                    <MessageBubble message={msg} />
+                    {msg.toolCalls?.map(tool => (
+                      <ToolCallCard key={tool.id} tool={tool} />
+                    ))}
+                    {msg.error && <ErrorCard error={msg.error} />}
+                    {msg.workflowDispatch && (
+                      <WorkflowProgressCard
+                        workflowName={msg.workflowDispatch.workflowName}
+                        workerConversationId={msg.workflowDispatch.workerConversationId}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      {/* Jump to bottom button */}
+      {!isAtBottom && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+          <Button
+            onClick={scrollToBottom}
+            size="sm"
+            variant="secondary"
+            className="rounded-full bg-surface-elevated shadow-lg"
+          >
+            <ArrowDown className="mr-1 h-3 w-3" />
+            Jump to bottom
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const messageList = memo(MessageListRaw);
+export { messageList as MessageList };
