@@ -1,0 +1,19 @@
+services:
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:sts
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - "9443:9443"
+      - "8000:8000" # Optional; only needed for Edge agents
+
+volumes:
+  portainer_data:
+    name: archon_portainer_data
+
+networks:
+  default:
+    name: archon_portainer_network
